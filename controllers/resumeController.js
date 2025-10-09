@@ -37,7 +37,7 @@ export const reviewResume = async (req, res) => {
           { role: "system", content: "You are an expert resume reviewer." },
           {
             role: "user",
-            content: `Please review the following resume for a ${jobRole} role:\n\n${resumeContent}`
+            content: `Please review and analyze the following resume for a ${jobRole} role:\n\n${resumeContent}`
           }
         ]
       },
