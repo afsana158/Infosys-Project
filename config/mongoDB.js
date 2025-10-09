@@ -1,11 +1,9 @@
 import mongoose from "mongoose";
-const MONGODB_URI = "mongodb+srv://23052112_db_user:3YEUQ589uoF7U74i@cluster1.x7nztu4.mongodb.net/";
-
 
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(MONGODB_URI, {
+    await mongoose.connect(process.env.MONGODB_URI, {
         dbName: "Resume-Optimiser"
     });
     console.log("MongoDB connected successfully.");
