@@ -9,11 +9,11 @@ import connectDB from './config/mongoDB.js';
 const app = express();
 const port = 5000
 dotenv.config();
-connectDB()
+connectDB();
 
 app.use(express.json())
 app.use(cors())
 
-app.use("/api", resumeRoute);
+app.use("/", resumeRoute);
 
 app.listen(port ,()=> console.log('server started on port: '+ port))

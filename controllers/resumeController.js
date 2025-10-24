@@ -1,58 +1,59 @@
 import axios from "axios";
 import { createRequire } from "module";
 import mammoth from "mammoth";
+import FormData from "form-data";
+import dotenv from "dotenv";
+
+dotenv.config(); 
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse"); 
 
+// Extract text from uploaded resume buffer
+const extractResumeText = async (fileBuffer, mimetype) => {
+  if (!fileBuffer) return "";
+
+  if (mimetype === "application/pdf") {
+    const data = await pdfParse(fileBuffer);
+    return data.text || "";
+  } else if (
+    mimetype ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    const result = await mammoth.extractRawText({ buffer: fileBuffer });
+    return result.value || "";
+  } else {
+    return fileBuffer.toString("utf8");
+  }
+};
+
+// NLP call 
 export const reviewResume = async (req, res) => {
   try {
-
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
-    const { jobRole } = req.body;
-    const fileBuffer = req.file.buffer;
-    const mimetype = req.file.mimetype;
-
-    let resumeContent = "";
-
-    if (mimetype === "application/pdf") {   
-      const data = await pdfParse(fileBuffer);
-      resumeContent = data.text;
-    } else if (
-      mimetype ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) {
-      const result = await mammoth.extractRawText({ buffer: fileBuffer });
-      resumeContent = result.value;
-    } else {
-      resumeContent = fileBuffer.toString("utf8");
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const aiResponse = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are an expert resume reviewer." },
-          {
-            role: "user",
-            content: `Please review and analyze the following resume for a ${jobRole} role:\n\n${resumeContent}`
-          }
-        ]
-      },
+    const jobRole = req.body.jobRole || "";
+
+    const formData = new FormData();
+    formData.append("file", req.file.buffer, req.file.originalname);
+    formData.append("job_role", jobRole);
+
+    const response = await axios.post(
+      process.env.NLP_API_URL || "http://127.0.0.1:8000/review",
+      formData,
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        }
+          ...formData.getHeaders(),
+        },
+        maxBodyLength: Infinity, // in case of large resumes
       }
     );
 
-    const review = aiResponse.data.choices[0].message.content;
-    res.json({ review });
+    return res.json(response.data);
   } catch (error) {
-    console.error(error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to review resume" });
+    console.error("NLP API error:", error.response?.data || error.message);
+    return res.status(500).json({ error: "Failed to analyze resume via NLP API" });
   }
 };
